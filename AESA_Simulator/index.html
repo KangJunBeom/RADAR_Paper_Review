@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AESA Radar Design Simulator</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #111318;
+  --surface2: #181c24;
+  --border: rgba(255,255,255,0.07);
+  --border-hi: rgba(99,210,255,0.3);
+  --accent: #63d2ff;
+  --accent2: #4fffb0;
+  --accent3: #ff9f43;
+  --danger: #ff6b6b;
+  --text: #e8edf5;
+  --text-dim: #ffffff;
+  --text-mid: #8a96ab;
+  --font: 'pretendard';
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* HEADER */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  background: rgb(30, 40, 60);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+}
+.logo {
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.logo span { color: var(--text-dim); }
+.header-tag {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: .08em;
+}
+
+/* NAV TABS */
+.nav {
+  display: flex;
+  gap: 2px;
+  padding: 16px 32px 0;
+  border-bottom: 1px solid var(--border);
+}
+.nav-tab {
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--text-dim);
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.nav-tab:hover { color: var(--text-mid); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* PANELS */
+.panels { padding: 28px 32px 48px; }
+.panel { display: none; }
+.panel.active { display: grid; gap: 20px; }
+
+/* PANEL GRID LAYOUTS */
+.panel-1 { grid-template-columns: 300px 1fr; grid-template-rows: auto 1fr; }
+.panel-2 { grid-template-columns: 400px 1fr; }
+.panel-3 { grid-template-columns: 1fr; }
+
+/* CARD */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.card-title {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* PARAM ROWS */
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.param-label {
+  font-size: 12px;
+  color: var(--text-mid);
+  min-width: 100px;
+  max-width: 100px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.param-label sub { font-size: 10px; }
+input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 5px;
+  background: var(--surface2);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  transition: transform .1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.param-val {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--accent);
+  min-width: 40px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* METRIC STRIP */
+.metric-strip {
+  display: grid;
+  gap: 10px;
+}
+.metric-strip.cols2 { grid-template-columns: 1fr 1fr; }
+.metric-strip.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+.metric-box {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+.metric-label {
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.metric-val {
+  font-family: var(--font);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+}
+.metric-unit {
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+.metric-val.ok { color: var(--accent2); }
+.metric-val.warn { color: var(--accent3); }
+.metric-val.err { color: var(--danger); }
+
+/* CHART CONTAINERS */
+.chart-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* COMPARE CARDS */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.compare-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.compare-card.highlight { border-color: var(--accent2); }
+.compare-card .cc-title {
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.compare-card .cc-val {
+  font-family: var(--font);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+}
+.compare-card.highlight .cc-val { color: var(--accent2); }
+.compare-card .cc-unit { font-family: var(--font); font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+.tag {
+  display: inline-block;
+  font-family: var(--font);
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  margin-top: 8px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.tag.bad { background: rgba(255,107,107,0.12); color: var(--danger); border: 1px solid rgba(255,107,107,0.2); }
+.tag.good { background: rgba(79,255,176,0.1); color: var(--accent2); border: 1px solid rgba(79,255,176,0.2); }
+
+/* INFO BOX */
+.info-box {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-mid);
+  line-height: 1.7;
+}
+.info-box strong { color: var(--text); font-weight: 500; }
+.info-box.warn { border-left-color: var(--accent3); }
+.info-box.err { border-left-color: var(--danger); }
+
+/* FORMULA DISPLAY */
+.formula {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--text-mid);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  letter-spacing: .03em;
+}
+.formula .eq { color: var(--accent); }
+
+/* ===== PANEL 1 SPECIFIC ===== */
+.p1-right { display: flex; flex-direction: column; gap: 12px; }
+.p1-span { grid-column: 1 / -1; }
+.flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.flow-num {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 50%;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.flow-num.dim { background: var(--text-dim); }
+.flow-content { flex: 1; }
+.flow-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+.flow-arrow {
+  text-align: center;
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 2px 0 2px 34px;
+}
+.derived-badge {
+  display: inline-block;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(99,210,255,0.1);
+  border: 1px solid rgba(99,210,255,0.25);
+  border-radius: 5px;
+  padding: 5px 12px;
+  margin-top: 4px;
+}
+.derived-badge.orange { color: var(--accent3); background: rgba(255,159,67,0.1); border-color: rgba(255,159,67,0.25); }
+.derived-badge.green  { color: var(--accent2); background: rgba(79,255,176,0.1); border-color: rgba(79,255,176,0.25); }
+.speed-bar-wrap {
+  background: var(--surface2);
+  border-radius: 6px;
+  overflow: hidden;
+  height: 32px;
+  display: flex;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+}
+.speed-seg {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); font-size: 9px; letter-spacing: .05em;
+  transition: flex .35s;
+  white-space: nowrap; overflow: hidden;
+}
+.highlight-row {
+  background: rgba(99,210,255,0.06);
+  border: 1px solid rgba(99,210,255,0.2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.highlight-row .hr-label { font-size: 11px; color: var(--text-mid); }
+.highlight-row .hr-val { font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--accent); }
+.paper-ref {
+  font-family: var(--font);
+  font-size: 9px;
+  color: var(--text-dim);
+  background: var(--surface2);
+  border-left: 2px solid var(--accent3);
+  padding: 6px 10px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 12px;
+  letter-spacing: .03em;
+}
+
+/* ===== PANEL 2 SPECIFIC ===== */
+.doppler-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.doppler-canvas-wrap {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.dc-label { font-family: var(--font); font-size: 10px; letter-spacing: .08em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; }
+
+/* ===== PANEL 3 — BEAM OPS ===== */
+.beam-layout { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
+.grid-wrap {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.grid-canvas-el { display: block; border-radius: 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-family: var(--font); font-size: 9px; letter-spacing: .06em; color: var(--text-dim); text-transform: uppercase; }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* LOG */
+.log-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  height: 200px;
+  overflow-y: auto;
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1.9;
+}
+.log-panel::-webkit-scrollbar { width: 4px; }
+.log-panel::-webkit-scrollbar-track { background: transparent; }
+.log-panel::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+.log-line { color: var(--text-dim); }
+.log-line.ok { color: var(--accent2); }
+.log-line.hi { color: var(--accent); }
+.log-line.warn { color: var(--accent3); }
+.log-line.err { color: var(--danger); }
+
+/* BUTTONS */
+.btn-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.btn {
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 8px 18px;
+  border-radius: 5px;
+  border: 1px solid var(--border-hi);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.btn:hover { background: rgba(99,210,255,0.1); }
+.btn.primary { background: rgba(99,210,255,0.15); border-color: var(--accent); }
+.btn.green { border-color: rgba(79,255,176,0.4); color: var(--accent2); }
+.btn.green:hover { background: rgba(79,255,176,0.1); }
+.btn.orange { border-color: rgba(255,159,67,0.4); color: var(--accent3); }
+.btn.orange:hover { background: rgba(255,159,67,0.1); }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* SECTION LABEL */
+.sec-label {
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+/* BEAM STATS GRID */
+.beam-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+
+/* PROGRESS BAR */
+.progress-bar-wrap { background: var(--surface2); border-radius: 3px; height: 4px; margin-bottom: 16px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
+
+/* VALIDITY INDICATOR */
+.validity-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+.vbar-seg { display: flex; align-items: center; justify-content: center; font-family: var(--font); font-size: 9px; letter-spacing: .06em; transition: flex .4s; }
+
+@media (max-width: 768px) {
+  .panel-1, .panel-2 { grid-template-columns: 1fr; }
+  .beam-layout { grid-template-columns: 1fr; }
+  .nav { padding: 12px 16px 0; overflow-x: auto; }
+  .panels { padding: 20px 16px 40px; }
+  .header { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">AESA<span>/</span>Radar<span> — </span>Design Simulator</div>
+  <div class="header-tag">Ryu et al., KJKIEES 2020 · Vol.31 No.1</div>
+</header>
+
+<nav class="nav">
+  <div class="nav-tab active" onclick="switchTab(0)">01 · HPRF PRF 최적화</div>
+  <div class="nav-tab" onclick="switchTab(1)">02 · LFM Ranging 설계</div>
+  <div class="nav-tab" onclick="switchTab(2)">03 · 2단계 빔 운용</div>
+</nav>
+
+<div class="panels">
+
+  <!-- PANEL 1 -->
+  <div class="panel" style="display:none;grid-template-columns:1fr;gap:20px" id="panel-0">
+
+    <!-- 고정 스펙 배너 -->
+    <div style="background:var(--surface2);border:1px solid var(--border-hi);border-radius:10px;padding:16px 20px;">
+      <div style="font-family:var(--font);font-size:9px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:12px">논문 3장 — 레이다 고정 스펙</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div><div style="font-family:var(--font);font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">펄스폭 τ</div><div style="font-family:var(--font);font-size:20px;font-weight:600;color:var(--text)">1.2 <span style="font-size:12px;color:var(--text-dim)">μs</span></div><div style="font-size:11px;color:var(--text-dim);margin-top:3px">고정값 (초기 탐색 빔)</div></div>
+        <div><div style="font-family:var(--font);font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">파장 λ</div><div style="font-family:var(--font);font-size:20px;font-weight:600;color:var(--text)">0.03 <span style="font-size:12px;color:var(--text-dim)">m</span></div><div style="font-size:11px;color:var(--text-dim);margin-top:3px">X-밴드 기준</div></div>
+        <div><div style="font-family:var(--font);font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">자함 최대속도</div><div style="font-family:var(--font);font-size:20px;font-weight:600;color:var(--text)">마하 2 <span style="font-size:12px;color:var(--text-dim)">(≈680 m/s)</span></div><div style="font-size:11px;color:var(--text-dim);margin-top:3px">설계 기준 상한</div></div>
+        <div><div style="font-family:var(--font);font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">최대 위협속도</div><div style="font-family:var(--font);font-size:20px;font-weight:600;color:var(--accent3)">1000 <span style="font-size:12px;color:var(--text-dim)">m/s</span></div><div style="font-size:11px;color:var(--text-dim);margin-top:3px">논문 설계 기준</div></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start">
+
+      <!-- LEFT -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="overflow:hidden">
+          <div class="card-title">파라미터 조정</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:14px;line-height:1.8">슬라이더를 움직이면 도플러 영역 배분과 PRF가 실시간으로 바뀝니다.</div>
+          <div class="param-row">
+            <span class="param-label">자함 속도 v<sub>r</sub></span>
+            <input type="range" min="0" max="680" step="10" value="680" id="p1_vr" oninput="u1()">
+            <span class="param-val" id="p1_vr_v">680 m/s</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">속도 마진 v<sub>margin</sub></span>
+            <input type="range" min="0" max="200" step="5" value="70" id="p1_vm" oninput="u1()">
+            <span class="param-val" id="p1_vm_v">70 m/s</span>
+          </div>
+        </div>
+
+        <!-- PRF 계산 과정 -->
+        <div class="card">
+          <div class="card-title">PRF 도출 (식 2)</div>
+          <div style="font-family:var(--font);font-size:11px;line-height:2.4;color:var(--text-mid)">
+            <div style="color:var(--text-dim);font-size:10px">PRF = 2(v<sub>t,max</sub> + v<sub>r</sub> + v<sub>margin</sub>) / λ</div>
+            <div style="color:var(--text-dim);font-size:10px">= 2 × (1000 + <span id="s_vr">680</span> + <span id="s_vm">70</span>) / 0.03</div>
+            <div style="color:var(--text-dim);font-size:10px">= 2 × <span id="s_sum">1750</span> / 0.03</div>
+            <div style="color:var(--accent);font-size:15px;font-weight:600;margin-top:4px">= <span id="s_prf">116.7</span> kHz</div>
+          </div>
+          <div class="divider"></div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.8">
+            기존 방식(식 1): <span style="font-family:var(--font);color:var(--danger)" id="s_old_prf">—</span> kHz<br>
+            <span style="color:var(--accent2)">절감: <span id="s_save_prf">—</span> kHz (<span id="s_save_pct">—</span>%)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <!-- PRF 비교 카드 -->
+        <div class="compare-grid">
+          <div class="compare-card">
+            <div class="cc-title">기존 방식 (식 1) — 접근·퇴각 대칭</div>
+            <div style="font-family:var(--font);font-size:10px;color:var(--text-dim);margin-bottom:8px">4 × (v<sub>r</sub> + v<sub>t,max</sub>) / λ</div>
+            <div class="cc-val" id="p1_old_val">—</div>
+            <div class="cc-unit">kHz</div>
+            <div class="tag bad">퇴각 탐지 포함 → 불필요한 PRF</div>
+          </div>
+          <div class="compare-card highlight">
+            <div class="cc-title">제안 방식 (식 2) — 접근 특화</div>
+            <div style="font-family:var(--font);font-size:10px;color:var(--text-dim);margin-bottom:8px">2 × (v<sub>t,max</sub> + v<sub>r</sub> + v<sub>margin</sub>) / λ</div>
+            <div class="cc-val" id="p1_new_val">—</div>
+            <div class="cc-unit">kHz</div>
+            <div class="tag good">퇴각 제거 → PRF 절감</div>
+          </div>
+        </div>
+
+        <!-- 도플러 속도 영역 배분 -->
+        <div class="card">
+          <div class="card-title">도플러 속도 영역 배분 — PRF 전체 대역에서 각 구간이 차지하는 비율</div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">기존 (식 1) — PRF <span id="p1_old_prf_label" style="font-family:var(--font);color:var(--danger)">—</span> kHz</div>
+            <div id="dop_bar_old" style="display:flex;height:32px;border-radius:5px;overflow:hidden;font-family:var(--font);font-size:9px;letter-spacing:.04em"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">제안 (식 2) — PRF <span id="p1_new_prf_label" style="font-family:var(--font);color:var(--accent2)">—</span> kHz</div>
+            <div id="dop_bar_new" style="display:flex;height:32px;border-radius:5px;overflow:hidden;font-family:var(--font);font-size:9px;letter-spacing:.04em"></div>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)"><span style="width:10px;height:10px;border-radius:2px;background:rgba(255,107,107,0.6)"></span>주엽 클러터 (자함 속도 영역)</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)"><span style="width:10px;height:10px;border-radius:2px;background:rgba(79,255,176,0.55)"></span>접근 탐지 구간 (위협 표적 탐지)</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)"><span style="width:10px;height:10px;border-radius:2px;background:rgba(99,210,255,0.5)"></span>속도 마진 값 (클러터 경계 여유)</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)"><span style="width:10px;height:10px;border-radius:2px;background:rgba(80,80,80,0.6)"></span>퇴각 구간 (제거됨)</span>
+          </div>
+        </div>
+
+        <!-- 차트: 자함 속도별 PRF -->
+        <div class="card">
+          <div class="card-title">자함 속도별 PRF — 마하 2 기준으로 설계해야 어떤 속도로 날아도 안전</div>
+          <div class="chart-wrap" style="height:190px"><canvas id="chart_p1"></canvas></div>
+        </div>
+
+        <div class="info-box" id="p1_info"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 2 -->
+  <div class="panel panel-2" id="panel-1">
+
+    <!-- LEFT -->
+    <div class="card" style="align-self:start">
+      <div class="card-title">LFM Ranging 파라미터</div>
+
+      <div style="background:var(--surface2);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-family:var(--font);font-size:10px;color:var(--text-mid);line-height:2">
+        <div style="color:var(--text-dim);font-size:9px;letter-spacing:.08em;margin-bottom:4px">식 16 — 유효 ξ 조건</div>
+        <span style="color:var(--accent2)">(f<sub>D</sub>−f<sub>c</sub>)·c/2R</span> <span style="color:var(--text-dim)"> > </span>
+        <span style="color:var(--accent)">ξ</span>
+        <span style="color:var(--text-dim)"> > </span>
+        <span style="color:var(--accent3)">2·PRF²/(P+α)</span>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:6px;line-height:1.8">
+          상한: 클러터 침범 방지 조건<br>하한: 거리 분해능 확보 조건
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div style="font-family:var(--font);font-size:9px;color:var(--accent3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">하한 조건 파라미터</div>
+      <div class="param-row">
+        <span class="param-label">버스트 펄스 수 P</span>
+        <input type="range" min="4" max="32" step="1" value="8" id="p2_P" oninput="u2()">
+        <span class="param-val" id="p2_P_v">8</span>
+      </div>
+      <div class="param-row">
+        <span class="param-label">Zero padding α</span>
+        <input type="range" min="0" max="16" step="1" value="4" id="p2_a" oninput="u2()">
+        <span class="param-val" id="p2_a_v">4</span>
+      </div>
+      <div class="param-row">
+        <span class="param-label">PRF</span>
+        <input type="range" min="20" max="200" step="1" value="87" id="p2_prf" oninput="u2()">
+        <span class="param-val" id="p2_prf_v">87 kHz</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div style="font-family:var(--font);font-size:9px;color:var(--accent2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">상한 조건 파라미터</div>
+      <div class="param-row">
+        <span class="param-label">표적 거리 R</span>
+        <input type="range" min="10" max="300" step="5" value="63" id="p2_R" oninput="u2()">
+        <span class="param-val" id="p2_R_v">63 km</span>
+      </div>
+      <div class="param-row">
+        <span class="param-label">표적 도플러 f<sub>D</sub></span>
+        <input type="range" min="2" max="100" step="1" value="21" id="p2_fD" oninput="u2()">
+        <span class="param-val" id="p2_fD_v">21 kHz</span>
+      </div>
+      <div class="param-row">
+        <span class="param-label">클러터 경계 f<sub>c</sub></span>
+        <input type="range" min="0" max="50" step="1" value="2" id="p2_fc" oninput="u2()">
+        <span class="param-val" id="p2_fc_v">2 kHz</span>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <!-- 계산값 -->
+      <div class="metric-strip" style="grid-template-columns:1fr 1fr 1fr 1fr">
+        <div class="metric-box">
+          <div class="metric-label" style="color:var(--accent3)">하한 ξ_min</div>
+          <div class="metric-val warn" id="p2_xmin_val">—</div>
+          <div class="metric-unit">MHz/s</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label" style="color:var(--accent2)">상한 ξ_max</div>
+          <div class="metric-val ok" id="p2_xmax_val">—</div>
+          <div class="metric-unit">MHz/s</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">유효 범위 폭</div>
+          <div class="metric-val" id="p2_width_val">—</div>
+          <div class="metric-unit">MHz/s</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">설계 가능</div>
+          <div class="metric-val" id="p2_ok_val">—</div>
+          <div class="metric-unit" id="p2_ok_unit">—</div>
+        </div>
+      </div>
+
+      <!-- 핵심: ξ 축 위에 상·하한을 직접 그리는 차트 -->
+      <div class="card">
+        <div class="card-title">ξ 설계 공간 — 상한(초록)과 하한(주황) 사이의 초록 구간이 유효 범위</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;line-height:1.8">
+          <span style="color:var(--accent2)">■</span> 상한 이하: 클러터가 표적을 덮지 않는 구간 &nbsp;
+          <span style="color:var(--accent3)">■</span> 하한 이상: 거리 분해능이 확보되는 구간 &nbsp;
+          <span style="color:var(--accent)">■</span> 두 조건 동시 만족 = <strong style="color:var(--text)">유효 설계 구간</strong>
+        </div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chart_p2a"></canvas></div>
+      </div>
+
+      <!-- 논문 최적값 표시 -->
+      <div class="card">
+        <div class="card-title">표적 속도별 최대 탐지거리 — 현재 ξ 유효 중심값 적용</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">
+          주황 × = 논문 비행시험 검증값 (250 m/s, 63 km)
+        </div>
+        <div class="chart-wrap" style="height:190px"><canvas id="chart_p2b"></canvas></div>
+      </div>
+
+      <div class="info-box" id="p2_info"></div>
+    </div>
+  </div>
+
+  <!-- PANEL 3 -->
+  <div class="panel panel-3" id="panel-2">
+
+    <!-- 단계 설명 배너 -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;">
+      <div style="font-family:var(--font);font-size:9px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:14px">2단계 빔 운용 절차</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
+        <div style="padding:0 16px 0 0;border-right:1px solid var(--border)">
+          <div style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--accent3);margin-bottom:6px">STEP 1</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:4px">빔 그리드 형성</div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.7">관심 영역을 N×N 드웰로 분할.<br>각 드웰은 특정 방향각 영역에 대응.</div>
+        </div>
+        <div style="padding:0 16px;border-right:1px solid var(--border)">
+          <div style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--accent3);margin-bottom:6px">STEP 2</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:4px">1단계 — 초기 탐색</div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.7">모든 드웰에 HPRF 초기 탐색 빔 조사. <br><strong style="color:var(--text)">속도 성분만</strong> 확인.</div>
+        </div>
+        <div style="padding:0 16px;border-right:1px solid var(--border)">
+          <div style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--accent2);margin-bottom:6px">STEP 3</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:4px">SNR 판단 → 자원 할당</div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.7">도플러 처리 후 <strong style="color:var(--text)">SNR이 임계값 이상</strong>이면 위협 속도 영역에 표적이 있는 것으로 판단.<br>해당 드웰에만 2단계 할당.</div>
+        </div>
+        <div style="padding:0 0 0 16px">
+          <div style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">STEP 4</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:4px">2단계 — 상세 탐색</div>
+          <div style="font-size:11px;color:var(--text-dim);line-height:1.7">LFM Ranging 버스트 3종 조사. <strong style="color:var(--text)">거리 확정</strong>.<br>위협 표적 최종 확인.</div>
+        </div>
+      </div>
+      <!-- SNR 설명 -->
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim);line-height:1.8">
+        <span style="font-family:var(--font);color:var(--accent3);font-size:10px;letter-spacing:.06em;text-transform:uppercase">SNR 임계값이 필요한 이유</span><br>
+        레이다 수신 신호에는 항상 열잡음이 섞입니다. 단순히 도플러 빈에 신호가 있다고 표적이라고 할 수 없습니다. <strong style="color:var(--text)">SNR(신호 대 잡음비)이 임계값 이상일 때만</strong> 진짜 표적 반사 신호라고 판단합니다. 임계값이 낮으면 잡음을 표적으로 오인(오탐)하고, 너무 높으면 진짜 표적을 놓칩니다(미탐). 논문에서는 HPRF의 coherent integration으로 SNR을 높여 장거리에서도 이 임계를 넘길 수 있도록 설계합니다.
+      </div>
+    </div>
+
+    <!-- 컨트롤 -->
+    <div class="card">
+      <div class="card-title">시나리오 설정</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+        <div>
+          <div class="param-row">
+            <span class="param-label">그리드 크기 N×N</span>
+            <input type="range" min="3" max="7" step="1" value="5" id="p3_N" oninput="u3_grid()" style="flex:1">
+            <span class="param-val" id="p3_N_v">5×5</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 0 130px">드웰이 많을수록 2단계 자원 절약 효과가 두드러집니다</div>
+        </div>
+        <div>
+          <div class="param-row">
+            <span class="param-label">탐지 임계 SNR</span>
+            <input type="range" min="5" max="20" step="1" value="12" id="p3_snr" oninput="document.getElementById('p3_snr_v').textContent=this.value+' dB'" style="flex:1">
+            <span class="param-val" id="p3_snr_v">12 dB</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 0 130px">낮으면 오탐 증가, 높으면 미탐 증가</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="startBeamSim()">▶ 시뮬레이션 시작</button>
+        <button class="btn" onclick="resetBeamSim()">↺ 초기화</button>
+        <button class="btn green" onclick="addBeamTarget()">+ 표적 추가</button>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="p3_prog" style="width:0%"></div></div>
+    </div>
+
+    <!-- 메인 레이아웃 -->
+    <div class="beam-layout">
+
+      <!-- 그리드 -->
+      <div class="grid-wrap">
+        <div class="sec-label">빔 그리드 — 드웰 상태</div>
+        <canvas id="beam_canvas" class="grid-canvas-el" width="300" height="300"></canvas>
+        <div class="legend" style="margin-top:12px">
+          <div class="legend-item"><div class="legend-dot" style="background:#1a2540;border:1px solid rgba(99,210,255,0.3)"></div>미탐색</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff9f43"></div>1단계 탐색 중</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#4fffb0"></div>속도 성분 탐지</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#63d2ff"></div>2단계 LFM 탐색</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>위협 확인 완료</div>
+        </div>
+        <!-- 현재 단계 표시 -->
+        <div id="p3_step_badge" style="margin-top:12px;background:var(--surface2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--text-dim);line-height:1.7;border:1px solid var(--border)">
+          시뮬레이션 시작 후 각 단계가 여기에 표시됩니다.
+        </div>
+      </div>
+
+      <!-- 우측 -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <div class="beam-stats">
+          <div class="metric-box">
+            <div class="metric-label">탐색 드웰</div>
+            <div class="metric-val" id="p3_ndwell">0</div>
+            <div class="metric-unit">/ <span id="p3_total">25</span></div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">위협 탐지</div>
+            <div class="metric-val ok" id="p3_ndet">0</div>
+            <div class="metric-unit">표적 확인</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">2단계 절약</div>
+            <div class="metric-val ok" id="p3_save">—</div>
+            <div class="metric-unit">% 드웰 생략</div>
+          </div>
+        </div>
+
+        <div class="card" style="flex:1">
+          <div class="card-title">운용 로그</div>
+          <div class="log-panel" id="p3_log">
+            <span class="log-line hi">// 2단계 빔 운용 시뮬레이터</span><br>
+            <span class="log-line">// 표적 추가 후 시작 버튼을 누르세요</span><br>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">자원 할당 현황</div>
+          <div class="chart-wrap" style="height:130px"><canvas id="chart_p3"></canvas></div>
+        </div>
+
+        <div class="info-box" id="p3_status">
+          1단계에서 위협 속도 성분이 탐지된 드웰에만 2단계 자원(LFM Ranging)을 할당합니다.<br>표적이 없는 대부분의 드웰은 1단계만 하고 넘어가므로 전체 자원의 대부분을 절약할 수 있습니다.
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const C = 3e8;
+let charts = {};
+
+// ===============================
+// TAB SWITCHING
+// ===============================
+function switchTab(i) {
+  document.querySelectorAll('.nav-tab').forEach((t, j) => t.classList.toggle('active', i === j));
+  document.querySelectorAll('.panel').forEach((p, j) => {
+    if (j === 0) p.style.display = (i === 0) ? 'grid' : 'none';
+    else p.classList.toggle('active', i === j);
+  });
+  if (i === 0) u1();
+  if (i === 1) u2();
+  if (i === 2) { u3_grid(); }
+}
+
+// ===============================
+// PANEL 1: HPRF PRF
+// ===============================
+function u1() {
+  const LAM = 0.03;  // 고정: 파장 0.03 m
+  const VT  = 1000;  // 고정: 최대 위협속도 1000 m/s
+
+  const vr = +document.getElementById('p1_vr').value;
+  const vm = +document.getElementById('p1_vm').value;
+
+  document.getElementById('p1_vr_v').textContent = vr + ' m/s';
+  document.getElementById('p1_vm_v').textContent = vm + ' m/s';
+
+  // PRF 계산
+  const prf_old = 4 * (vr + VT) / LAM / 1000;       // kHz
+  const prf_new = 2 * (VT + vr + vm) / LAM / 1000;  // kHz
+
+  // 결과 표시
+  document.getElementById('p1_old_val').textContent = prf_old.toFixed(1);
+  document.getElementById('p1_new_val').textContent = prf_new.toFixed(1);
+  document.getElementById('p1_old_prf_label').textContent = prf_old.toFixed(1);
+  document.getElementById('p1_new_prf_label').textContent = prf_new.toFixed(1);
+  document.getElementById('s_vr').textContent  = vr;
+  document.getElementById('s_vm').textContent  = vm;
+  document.getElementById('s_sum').textContent = VT + vr + vm;
+  document.getElementById('s_prf').textContent = prf_new.toFixed(1);
+  document.getElementById('s_old_prf').textContent = prf_old.toFixed(1);
+  document.getElementById('s_save_prf').textContent = (prf_old - prf_new).toFixed(1);
+  document.getElementById('s_save_pct').textContent = ((prf_old - prf_new) / prf_old * 100).toFixed(0);
+
+  function makebar(el, segs) {
+    const tot = segs.reduce((a, b) => a + b.w, 0);
+    el.innerHTML = segs.map(s =>
+      `<div style="flex:${(s.w/tot*100).toFixed(2)};background:${s.bg};display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.8);white-space:nowrap;overflow:hidden;padding:0 5px;font-size:10px">${s.label}</div>`
+    ).join('');
+  }
+  makebar(document.getElementById('dop_bar_old'), [
+    { w: vr,   bg: 'rgba(255,107,107,0.6)',  label: `클러터 (${vr}m/s)` },
+    { w: VT,   bg: 'rgba(79,255,176,0.55)',  label: `접근 탐지 (0→${VT}m/s)` },
+    { w: vr,   bg: 'rgba(255,107,107,0.45)', label: `클러터` },
+    { w: VT,   bg: 'rgba(80,80,80,0.6)',     label: `퇴각 (불필요, 제거됨)` }
+  ]);
+  makebar(document.getElementById('dop_bar_new'), [
+    { w: vr,   bg: 'rgba(255,107,107,0.6)',  label: `클러터 (${vr}m/s)` },
+    { w: VT,   bg: 'rgba(79,255,176,0.55)',  label: `접근 탐지 (0→${VT}m/s)` },
+    { w: vm,   bg: 'rgba(99,210,255,0.55)',  label: `마진 (${vm}m/s)` }
+  ]);
+
+  const isExample = (vr === 680 && vm === 70);
+  document.getElementById('p1_info').innerHTML = isExample
+    ? `<strong>▶ 논문 예시 재현:</strong> 자함 최대속도 마하 2(${vr} m/s) 기준으로 PRF를 설계하면 <strong>${prf_new.toFixed(1)} kHz</strong>.<br> 어떤 속도로 비행해도 위협 표적(0~${VT} m/s) 탐지 커버리지가 유지됩니다. 기존 방식 대비 PRF ${(prf_old - prf_new).toFixed(1)} kHz 절감.`
+    : `<strong>설계 결과:</strong> PRF ${prf_old.toFixed(1)} → ${prf_new.toFixed(1)} kHz. 퇴각 영역을 제거하면 PRF가 절반 수준으로 줄지만 접근 표적 커버리지(0~${VT} m/s)는 그대로입니다. 자함 속도가 높을수록 PRF가 높아지므로 <strong>최대속도 기준으로 설계</strong>해야 합니다.`;
+
+  const vrArr = [], prfOldArr = [], prfNewArr = [];
+  for (let v = 0; v <= 680; v += 20) {
+    vrArr.push(v);
+    prfOldArr.push(4 * (v + VT) / LAM / 1000);
+    prfNewArr.push(2 * (VT + v + vm) / LAM / 1000);
+  }
+  if (charts.p1) charts.p1.destroy();
+  charts.p1 = new Chart(document.getElementById('chart_p1'), {
+    type: 'line',
+    data: {
+      labels: vrArr,
+      datasets: [
+        { label: '기존(식1)', data: prfOldArr, borderColor: '#ff6b6b', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: '제안(식2)', data: prfNewArr, borderColor: '#4fffb0', borderWidth: 2,   pointRadius: 0, tension: 0 },
+        { label: '마하2 기준점(기존)', data: vrArr.map(v => v === 680 ? 4*(680+VT)/LAM/1000 : null), borderColor: '#ff6b6b', backgroundColor: '#ff6b6b', pointRadius: 7, pointStyle: 'triangle', showLine: false },
+        { label: '마하2 기준점(제안)', data: vrArr.map(v => v === 680 ? 2*(VT+680+vm)/LAM/1000 : null), borderColor: '#4fffb0', backgroundColor: '#4fffb0', pointRadius: 7, pointStyle: 'triangle', showLine: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: i => `${i.dataset.label}: ${i.raw !== null ? i.raw.toFixed(1) + ' kHz' : ''}` } }
+      },
+      scales: {
+        x: { title: { display: true, text: '자함 속도 vr [m/s]  (마하 2 = 680 m/s)', font: { size: 10 }, color: '#5a6478' },
+             ticks: { color: '#5a6478', font: { size: 10 }, maxTicksLimit: 9 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { title: { display: true, text: 'PRF [kHz]', font: { size: 10 }, color: '#5a6478' },
+             ticks: { color: '#5a6478', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// ===============================
+// PANEL 2: LFM RANGING
+// ===============================
+function u2() {
+  const P   = +document.getElementById('p2_P').value;
+  const a   = +document.getElementById('p2_a').value;
+  const prf = +document.getElementById('p2_prf').value * 1000;
+  const R   = +document.getElementById('p2_R').value * 1000;
+  const fD  = +document.getElementById('p2_fD').value * 1000;
+  const fc  = +document.getElementById('p2_fc').value * 1000;
+
+  document.getElementById('p2_P_v').textContent   = P;
+  document.getElementById('p2_a_v').textContent   = a;
+  document.getElementById('p2_prf_v').textContent = (prf/1000).toFixed(0) + ' kHz';
+  document.getElementById('p2_R_v').textContent   = (R/1000).toFixed(0) + ' km';
+  document.getElementById('p2_fD_v').textContent  = (fD/1000).toFixed(0) + ' kHz';
+  document.getElementById('p2_fc_v').textContent  = (fc/1000).toFixed(0) + ' kHz';
+
+  const prf_khz = prf / 1000;
+  const xmin = 2 * prf_khz * prf_khz / (P + a) / 1000;  // PRF를 kHz 단위로 → MHz/s
+  const xmax = (fD - fc) * C / (2 * R) / 1e6;
+  const ok   = xmax > xmin && xmax > 0 && xmin > 0;
+
+  document.getElementById('p2_xmin_val').textContent  = xmin.toFixed(2);
+  document.getElementById('p2_xmax_val').textContent  = Math.max(0, xmax).toFixed(2);
+  document.getElementById('p2_width_val').textContent = ok ? (xmax - xmin).toFixed(2) : '0';
+  document.getElementById('p2_ok_val').textContent    = ok ? '가능' : '불가';
+  document.getElementById('p2_ok_val').className      = 'metric-val ' + (ok ? 'ok' : 'err');
+  document.getElementById('p2_ok_unit').textContent   = ok ? `ξ_min ~ ξ_max` : '조건 불만족';
+
+  document.getElementById('p2_info').className = ok ? 'info-box' : 'info-box err';
+  document.getElementById('p2_info').innerHTML = ok
+    ? `<strong>설계 가능:</strong> <span style="color:#ff9f43">${xmin.toFixed(2)} MHz/s</span> &lt; ξ &lt; <span style="color:#4fffb0">${xmax.toFixed(2)} MHz/s</span>. 차트에서 초록 구간이 두 조건을 동시에 만족하는 유효 설계 범위입니다. 논문 선택값 ξ = 6.45 MHz/s는 이 범위 안에 있어야 합니다.`
+    : `<strong>설계 불가:</strong> 상한(${xmax.toFixed(2)}) ≤ 하한(${xmin.toFixed(2)}) — 초록 구간이 없습니다. PRF를 낮추거나(하한 ↓), 표적 거리를 늘리거나 f_D를 높이면(상한 ↑) 유효 구간이 생깁니다.`;
+
+// 차트 A: 캔버스 직접 렌더 — 유효 ξ 세로 띠 시각화 (dpr 보정, 범위 0~30)
+  const XMAX_PLOT = 30;
+  const cv2a = document.getElementById('chart_p2a');
+  const dpr  = window.devicePixelRatio || 1;
+  const cssW = cv2a.parentElement.offsetWidth || 500;
+  const cssH = 200;
+  cv2a.width  = cssW * dpr;
+  cv2a.height = cssH * dpr;
+  cv2a.style.width  = cssW + 'px';
+  cv2a.style.height = cssH + 'px';
+  const ctx2a = cv2a.getContext('2d');
+  ctx2a.setTransform(1, 0, 0, 1, 0, 0);
+  ctx2a.scale(dpr, dpr);
+
+  const PAD  = { l: 40, r: 16, t: 36, b: 32 };
+  const pw   = cssW - PAD.l - PAD.r;
+  const ph   = cssH - PAD.t - PAD.b;
+  const toX  = v => PAD.l + Math.min(Math.max(v, 0), XMAX_PLOT) / XMAX_PLOT * pw;
+  const font9  = '9px pretendard, sans-serif';
+  const font10 = '10px pretendard, sans-serif';
+
+  ctx2a.clearRect(0, 0, cssW, cssH);
+
+  // 전체 배경 (유효 범위 밖 — 붉은 틴트)
+  ctx2a.fillStyle = 'rgba(180,80,60,0.13)';
+  ctx2a.fillRect(PAD.l, PAD.t, pw, ph);
+
+  // 유효 구간 — 반투명 파란 세로 띠
+  if (ok && xmax > xmin) {
+    const x1 = toX(xmin);
+    const x2 = toX(Math.min(xmax, XMAX_PLOT));
+    ctx2a.fillStyle = 'rgba(99,210,255,0.22)';
+    ctx2a.fillRect(x1, PAD.t, x2 - x1, ph);
+    if (x2 - x1 > 32) {
+      ctx2a.fillStyle = 'rgba(99,210,255,0.85)';
+      ctx2a.font = font10;
+      ctx2a.textAlign = 'center';
+      const midX = (x1 + x2) / 2;
+      ctx2a.fillText('유효 구간', midX, PAD.t + ph / 2 - 7);
+      ctx2a.fillText(xmin.toFixed(2) + ' ~ ' + xmax.toFixed(2), midX, PAD.t + ph / 2 + 9);
+    }
+  }
+
+  // 세로 그리드선 + x축 눈금
+  for (let v = 0; v <= XMAX_PLOT; v += 5) {
+    const px = toX(v);
+    ctx2a.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx2a.lineWidth = 0.5;
+    ctx2a.beginPath(); ctx2a.moveTo(px, PAD.t); ctx2a.lineTo(px, PAD.t + ph); ctx2a.stroke();
+    ctx2a.fillStyle = '#5a6478';
+    ctx2a.font = font10;
+    ctx2a.textAlign = 'center';
+    ctx2a.fillText(v, px, PAD.t + ph + 14);
+  }
+
+  // x축 선
+  ctx2a.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx2a.lineWidth = 0.5;
+  ctx2a.beginPath(); ctx2a.moveTo(PAD.l, PAD.t + ph); ctx2a.lineTo(PAD.l + pw, PAD.t + ph); ctx2a.stroke();
+
+  // x축 제목
+  ctx2a.fillStyle = '#5a6478';
+  ctx2a.font = font10;
+  ctx2a.textAlign = 'center';
+  ctx2a.fillText('LFM 변조율 ξ [MHz/s]', PAD.l + pw / 2, PAD.t + ph + 28);
+
+  // 하한선 (주황 점선)
+  const xMinPx = toX(xmin);
+  ctx2a.strokeStyle = '#ff9f43';
+  ctx2a.lineWidth = 2;
+  ctx2a.setLineDash([6, 4]);
+  ctx2a.beginPath(); ctx2a.moveTo(xMinPx, PAD.t); ctx2a.lineTo(xMinPx, PAD.t + ph); ctx2a.stroke();
+  ctx2a.setLineDash([]);
+  ctx2a.fillStyle = '#ff9f43';
+  ctx2a.font = font9;
+  const minRight = xmin > XMAX_PLOT * 0.78;
+  ctx2a.textAlign = minRight ? 'right' : 'left';
+  ctx2a.fillText('ξ_min ' + xmin.toFixed(2), xMinPx + (minRight ? -4 : 4), PAD.t + 12);
+
+  // 상한선 (초록 점선)
+  if (xmax > 0) {
+    if (xmax <= XMAX_PLOT) {
+      const xMaxPx = toX(xmax);
+      ctx2a.strokeStyle = '#4fffb0';
+      ctx2a.lineWidth = 2;
+      ctx2a.setLineDash([6, 4]);
+      ctx2a.beginPath(); ctx2a.moveTo(xMaxPx, PAD.t); ctx2a.lineTo(xMaxPx, PAD.t + ph); ctx2a.stroke();
+      ctx2a.setLineDash([]);
+      ctx2a.fillStyle = '#4fffb0';
+      ctx2a.font = font9;
+      const maxRight = xmax > XMAX_PLOT * 0.78;
+      ctx2a.textAlign = maxRight ? 'right' : 'left';
+      ctx2a.fillText('ξ_max ' + xmax.toFixed(2), xMaxPx + (maxRight ? -4 : 4), PAD.t + 12);
+    } else {
+      ctx2a.fillStyle = '#4fffb0';
+      ctx2a.font = font9;
+      ctx2a.textAlign = 'right';
+      ctx2a.fillText('ξ_max ' + xmax.toFixed(2) + ' →', PAD.l + pw - 4, PAD.t + 12);
+    }
+  }
+
+  // 논문 선택값 ξ = 6.45 수직 마커
+  const xi645 = toX(6.45);
+  ctx2a.strokeStyle = 'rgba(99,210,255,0.7)';
+  ctx2a.lineWidth = 1.5;
+  ctx2a.beginPath(); ctx2a.moveTo(xi645, PAD.t); ctx2a.lineTo(xi645, PAD.t + ph); ctx2a.stroke();
+  ctx2a.fillStyle = 'rgba(99,210,255,0.85)';
+  ctx2a.font = font9;
+  ctx2a.textAlign = 'left';
+  ctx2a.fillText('6.45', xi645 + 3, PAD.t + ph - 5);
+
+  // 범례
+  const legItems = [
+    { color: 'rgba(99,210,255,0.35)', label: '유효 구간' },
+    { color: '#ff9f43',               label: 'ξ_min (하한)' },
+    { color: '#4fffb0',               label: 'ξ_max (상한)' },
+    { color: 'rgba(99,210,255,0.8)',  label: '논문값 6.45' },
+  ];
+  ctx2a.font = font9;
+  let lx = PAD.l;
+  legItems.forEach(item => {
+    ctx2a.fillStyle = item.color;
+    ctx2a.fillRect(lx, PAD.t - 22, 8, 8);
+    ctx2a.fillStyle = '#5a6478';
+    ctx2a.textAlign = 'left';
+    ctx2a.fillText(item.label, lx + 11, PAD.t - 14);
+    lx += ctx2a.measureText(item.label).width + 28;
+  });
+
+    // 차트 B: 탐지거리
+  const lam = 0.03, vr_approx = 72;
+  const xi_use = ok ? (xmin + xmax) / 2 : 6.45;
+  const speeds = [], ranges = [];
+  for (let v = 30; v <= 600; v += 5) {
+    const fDv = 2 * (v + vr_approx) / lam;
+    const fcc = 2 * vr_approx / lam * 0.15;
+    ranges.push(Math.max(0, Math.min(((fDv - fcc) * C / (2 * xi_use * 1e6)) / 1000, 300)));
+    speeds.push(v);
+  }
+  if (charts.p2b) charts.p2b.destroy();
+  charts.p2b = new Chart(document.getElementById('chart_p2b'), {
+    type: 'line',
+    data: {
+      labels: speeds,
+      datasets: [
+        { label: '최대 탐지거리', data: ranges, borderColor: '#63d2ff', backgroundColor: 'rgba(99,210,255,0.07)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: '비행시험 검증 (250m/s, 63km)', data: speeds.map(v => v === 250 ? 63 : null), borderColor: '#ff9f43', backgroundColor: '#ff9f43', pointRadius: 8, pointStyle: 'crossRot', showLine: false, borderWidth: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: '표적 접근속도 [m/s]', font: { size: 10 }, color: '#5a6478' },
+             ticks: { color: '#5a6478', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { title: { display: true, text: '탐지거리 [km]', font: { size: 10 }, color: '#5a6478' },
+             min: 0, max: 300, ticks: { color: '#5a6478', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// ===============================
+// PANEL 3: 2-PHASE BEAM OPS
+// ===============================
+const SPD = 1000;  // 고정 500ms
+
+let beamSim = {
+  N: 5, grid: [], targets: [], step: 0,
+  running: false, timer: null,
+  nDwell: 0, nDet: 0, nPhase2: 0
+};
+
+const STATE_COLORS = { 0:'#1a2540', 1:'#ff9f43', 2:'#4fffb0', 3:'#63d2ff', 4:'#ff6b6b' };
+
+function setBadge(msg, cls) {
+  const el = document.getElementById('p3_step_badge');
+  el.style.borderColor = cls === 'ok' ? '#4fffb0' : cls === 'hi' ? '#63d2ff' : cls === 'warn' ? '#ff9f43' : 'var(--border)';
+  el.style.color = cls === 'ok' ? '#4fffb0' : cls === 'hi' ? '#63d2ff' : cls === 'warn' ? '#ff9f43' : 'var(--text-dim)';
+  el.innerHTML = msg;
+}
+
+function u3_grid() {
+  const N = +document.getElementById('p3_N').value;
+  document.getElementById('p3_N_v').textContent = N + '×' + N;
+  document.getElementById('p3_total').textContent = N * N;
+  beamSim.N = N;
+  drawBeamGrid();
+}
+
+function resetBeamSim() {
+  if (beamSim.timer) clearTimeout(beamSim.timer);
+  beamSim.running = false;
+  const N = beamSim.N;
+  beamSim.grid    = Array(N * N).fill(0);
+  beamSim.targets = [];
+  beamSim.step = beamSim.nDwell = beamSim.nDet = beamSim.nPhase2 = 0;
+  document.getElementById('p3_ndwell').textContent = '0';
+  document.getElementById('p3_ndet').textContent   = '0';
+  document.getElementById('p3_save').textContent   = '—';
+  document.getElementById('p3_prog').style.width   = '0%';
+  document.getElementById('p3_log').innerHTML =
+    '<span class="log-line hi">// 초기화 완료</span><br><span class="log-line">// 표적 추가 후 시뮬레이션 시작</span><br>';
+  document.getElementById('p3_status').textContent =
+    '1단계에서 위협 속도 성분이 탐지된 드웰에만 2단계 자원(LFM Ranging)을 할당합니다.';
+  setBadge('시뮬레이션 준비 완료. 시작 버튼을 누르세요.', '');
+  if (charts.p3) { charts.p3.destroy(); charts.p3 = null; }
+  drawBeamGrid();
+}
+
+function addBeamTarget() {
+  const N = beamSim.N;
+  let i, j, tries = 0;
+  do {
+    i = Math.floor(Math.random() * N);
+    j = Math.floor(Math.random() * N);
+    tries++;
+  } while (tries < 20 && beamSim.targets.some(t => t.i === i && t.j === j));
+  const v = Math.floor(Math.random() * 900) + 100;
+  beamSim.targets.push({ i, j, v, found: false });
+  beamLog(`[표적 등록] 드웰(${i},${j}) — 접근속도 ${v} m/s`, 'hi');
+  drawBeamGrid();
+}
+
+function beamLog(msg, cls) {
+  const el = document.getElementById('p3_log');
+  el.innerHTML += `<span class="log-line ${cls || ''}">${msg}</span><br>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function drawBeamGrid() {
+  const cv = document.getElementById('beam_canvas');
+  const N  = beamSim.N;
+  const SZ = Math.floor(280 / N);
+  const W = SZ * N, H = SZ * N;
+  cv.width = W + 2; cv.height = H + 2;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W + 2, H + 2);
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const idx = i * N + j;
+      const st = beamSim.grid[idx] || 0;
+      ctx.fillStyle = STATE_COLORS[st];
+      ctx.fillRect(j*SZ+1, i*SZ+1, SZ-2, SZ-2);
+      ctx.strokeStyle = st === 0 ? 'rgba(99,210,255,0.15)' : 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(j*SZ+1, i*SZ+1, SZ-2, SZ-2);
+      const tgt = beamSim.targets.find(t => t.i === i && t.j === j);
+      if (tgt) {
+        ctx.fillStyle = tgt.found ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.5)';
+        ctx.font = `${Math.max(10, Math.floor(SZ*0.3))}px monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(tgt.found ? 'T' : '?', j*SZ+SZ/2+1, i*SZ+SZ/2+1);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.font = `${Math.max(8, Math.floor(SZ*0.2))}px monospace`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(idx, j*SZ+3, i*SZ+3);
+    }
+  }
+}
+
+function updateBeamStats() {
+  const total = beamSim.N * beamSim.N;
+  document.getElementById('p3_ndwell').textContent = beamSim.nDwell;
+  document.getElementById('p3_ndet').textContent   = beamSim.nDet;
+  document.getElementById('p3_prog').style.width   = (beamSim.step / total * 100).toFixed(1) + '%';
+  if (beamSim.step > 0) {
+    document.getElementById('p3_save').textContent = ((total - beamSim.nPhase2) / total * 100).toFixed(0) + '%';
+  }
+}
+
+function updateBeamChart() {
+  const p1only = beamSim.nDwell - beamSim.nPhase2;
+  const p2     = beamSim.nPhase2;
+  const unused = Math.max(0, beamSim.N * beamSim.N - beamSim.nDwell);
+  if (charts.p3) charts.p3.destroy();
+  charts.p3 = new Chart(document.getElementById('chart_p3'), {
+    type: 'bar',
+    data: {
+      labels: ['드웰 자원 배분'],
+      datasets: [
+        { label: `1단계만 완료 (${p1only}개)`,  data: [p1only],  backgroundColor: 'rgba(255,159,67,0.55)', borderWidth: 0 },
+        { label: `2단계 할당됨 (${p2}개)`,       data: [p2],      backgroundColor: 'rgba(99,210,255,0.55)', borderWidth: 0 },
+        { label: `미탐색 (${unused}개)`,          data: [unused],  backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 0 }
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: '#5a6478', font: { size: 10, family: 'pretendard' }, boxWidth: 10, padding: 10 } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#5a6478', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { stacked: true, ticks: { display: false }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function startBeamSim() {
+  if (beamSim.running) return;
+  if (beamSim.targets.length === 0) { addBeamTarget(); addBeamTarget(); }
+  beamSim.running = true;
+  beamSim.step = beamSim.nDwell = beamSim.nDet = beamSim.nPhase2 = 0;
+  beamSim.grid = Array(beamSim.N * beamSim.N).fill(0);
+  beamSim.targets.forEach(t => t.found = false);
+  beamLog('', '');
+  beamLog(`▶ 시뮬레이션 시작 — 그리드 ${beamSim.N}×${beamSim.N} | 표적 ${beamSim.targets.length}개`, 'ok');
+  runBeamStep();
+}
+
+function runBeamStep() {
+  if (!beamSim.running) return;
+  const N = beamSim.N, total = N * N;
+  if (beamSim.step >= total) { finishBeamSim(); return; }
+
+  const idx = beamSim.step;
+  const i = Math.floor(idx / N), j = idx % N;
+
+  beamSim.grid[idx] = 1;
+  beamSim.nDwell++;
+  updateBeamStats(); updateBeamChart(); drawBeamGrid();
+  setBadge(`<strong>STEP 2 — 1단계 초기 탐색</strong><br>드웰(${i},${j}) HPRF 빔 조사 중... 도플러 처리로 위협 속도 성분 확인`, 'warn');
+  beamLog(`[1단계] 드웰(${i},${j}) HPRF 초기 탐색 빔 조사`, '');
+
+  const tgt    = beamSim.targets.find(t => t.i === i && t.j === j);
+  const snrThr = +document.getElementById('p3_snr').value;
+
+  beamSim.timer = setTimeout(() => {
+    if (tgt && !tgt.found) {
+      const det = Math.random() > 0.1;
+      if (det) {
+        beamSim.grid[idx] = 2;
+        beamSim.nDet++;
+        drawBeamGrid();
+        setBadge(`<strong>STEP 3 — SNR 판단 통과</strong><br>드웰(${i},${j}) 접근속도 ≈${tgt.v} m/s 성분 탐지 (SNR ≥ ${snrThr} dB)<br>→ 2단계 상세 탐색 자원 할당 결정`, 'ok');
+        beamLog(`  → SNR ≥ ${snrThr} dB — 접근속도 ≈${tgt.v} m/s 속도 성분 탐지!`, 'ok');
+
+        beamSim.timer = setTimeout(() => {
+          beamSim.grid[idx] = 3;
+          beamSim.nPhase2++;
+          updateBeamStats(); updateBeamChart(); drawBeamGrid();
+          setBadge(`<strong>STEP 4 — 2단계 LFM Ranging</strong><br>드웰(${i},${j}) 버스트 3종(ξ₁=4.3, ξ₂=6.45, ξ₃=0 MHz/s) 조사 중...<br>거리 모호성 제거 후 실제 거리 확정`, 'hi');
+          beamLog(`  [2단계] 드웰(${i},${j}) LFM Ranging 버스트 3종 조사`, 'hi');
+
+          beamSim.timer = setTimeout(() => {
+            const R = Math.floor(Math.random() * 180 + 30);
+            beamSim.grid[idx] = 4;
+            tgt.found = true;
+            updateBeamStats(); updateBeamChart(); drawBeamGrid();
+            setBadge(`<strong>위협 확인 완료</strong><br>드웰(${i},${j}) 거리 ${R} km 확정 — 위협 표적`, 'warn');
+            beamLog(`  → 거리 ${R} km 확정. 위협 표적 확인 완료.`, 'warn');
+            beamSim.step++;
+            beamSim.timer = setTimeout(runBeamStep, SPD);
+          }, SPD);
+        }, SPD);
+      } else {
+        beamSim.grid[idx] = 0;
+        drawBeamGrid();
+        setBadge(`<strong>STEP 3 — SNR 미달</strong><br>드웰(${i},${j}) SNR < ${snrThr} dB — 잡음으로 판단<br>→ 2단계 생략 (자원 절약)`, '');
+        beamLog(`  → SNR < ${snrThr} dB — 미탐지. 2단계 생략.`, '');
+        updateBeamStats(); updateBeamChart();
+        beamSim.step++;
+        beamSim.timer = setTimeout(runBeamStep, SPD);
+      }
+    } else {
+      beamSim.grid[idx] = 0;
+      drawBeamGrid();
+      setBadge(`<strong>STEP 3 — 위협 없음</strong><br>드웰(${i},${j}) 위협 속도 영역 표적 없음<br>→ 2단계 생략 (자원 절약)`, '');
+      beamLog(`  → 위협 속도 영역 표적 없음. 2단계 생략.`, '');
+      updateBeamStats(); updateBeamChart();
+      beamSim.step++;
+      beamSim.timer = setTimeout(runBeamStep, SPD);
+    }
+  }, SPD);
+}
+
+function finishBeamSim() {
+  beamSim.running = false;
+  const total = beamSim.N * beamSim.N;
+  const saved = ((total - beamSim.nPhase2) / total * 100).toFixed(0);
+  document.getElementById('p3_save').textContent = saved + '%';
+  setBadge(`<strong>시뮬레이션 완료</strong><br>전체 ${total}개 드웰 중 2단계 할당: ${beamSim.nPhase2}개 / 생략: ${total - beamSim.nPhase2}개 (${saved}%)`, 'ok');
+  beamLog('', '');
+  beamLog(`▶ 완료 — 1단계: ${beamSim.nDwell}회 | 2단계: ${beamSim.nPhase2}회 | 위협: ${beamSim.nDet}개`, 'ok');
+  beamLog(`   자원 절약: ${saved}% 드웰에서 2단계 생략됨`, 'ok');
+  document.getElementById('p3_status').innerHTML =
+    `<strong>결과:</strong> 총 ${total}개 드웰 중 <strong>${beamSim.nPhase2}개</strong>만 2단계 할당. 나머지 <strong>${total - beamSim.nPhase2}개(${saved}%)</strong>는 1단계에서 위협 없음 또는 SNR 미달로 판단 → 2단계 생략. 이것이 2단계 빔 운용의 자원 효율화 핵심입니다.`;
+  updateBeamChart();
+}
+
+// ===============================
+// INIT
+// ===============================
+document.getElementById('panel-0').style.display = 'grid';
+u1();
+setTimeout(() => { u2(); u3_grid(); }, 100);
+</script>
+</body>
+</html>
