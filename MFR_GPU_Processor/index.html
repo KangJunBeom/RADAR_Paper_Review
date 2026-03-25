@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>함정용 다기능레이다 GPU 신호처리기 — 논문 데이터 시각화</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:       #0a0c10;
+  --surface:  #111318;
+  --surface2: #181c24;
+  --border:   rgba(255,255,255,0.07);
+  --border-hi:rgba(99,210,255,0.25);
+  --accent:   #63d2ff;
+  --accent2:  #4fffb0;
+  --accent3:  #ff9f43;
+  --danger:   #ff6b6b;
+  --text:     #e8edf5;
+  --text-dim: #8a96ab;
+  --text-mid: #5a6478;
+  --font:     'Pretendard', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:13px;
+  line-height:1.6;
+  min-height:100vh;
+}
+
+/* ── HEADER ── */
+.header{
+  border-bottom:1px solid var(--border);
+  padding:0 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;
+  position:sticky;top:0;
+  background:rgba(14,17,24,0.95);
+  backdrop-filter:blur(8px);
+  z-index:100;
+}
+.logo{font-size:15px;font-weight:700;letter-spacing:.1em;color:var(--accent);text-transform:uppercase;}
+.logo span{color:var(--text-dim);font-weight:400;}
+.header-tag{font-size:11px;color:var(--text-mid);letter-spacing:.06em;}
+
+/* ── LAYOUT ── */
+.page{padding:28px 32px 56px;}
+
+/* ── CARD ── */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:20px;
+}
+.card-title{
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.card-title::before{
+  content:'';display:inline-block;width:6px;height:6px;
+  border-radius:50%;background:var(--accent);flex-shrink:0;
+}
+
+/* ── SECTION HEADER ── */
+.sec-header{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:16px;
+}
+.sec-header h2{
+  font-size:11px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-dim);white-space:nowrap;
+}
+.sec-line{flex:1;height:1px;background:var(--border);}
+
+/* ── CASE BADGE ── */
+.case-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 10px;border-radius:4px;
+}
+.case-badge.c1{background:rgba(99,210,255,0.12);color:var(--accent);border:1px solid rgba(99,210,255,0.3);}
+.case-badge.c2{background:rgba(79,255,176,0.10);color:var(--accent2);border:1px solid rgba(79,255,176,0.3);}
+.case-badge.c3{background:rgba(255,159,67,0.10);color:var(--accent3);border:1px solid rgba(255,159,67,0.3);}
+
+/* ── METRIC BOX ── */
+.metric-box{
+  background:var(--surface2);border-radius:8px;padding:12px 14px;
+  border:1px solid var(--border);
+}
+.metric-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-mid);margin-bottom:5px;}
+.metric-val{font-size:22px;font-weight:700;color:var(--text);line-height:1;}
+.metric-unit{font-size:10px;color:var(--text-mid);margin-top:3px;}
+.metric-val.ok  {color:var(--accent2);}
+.metric-val.warn{color:var(--accent3);}
+.metric-val.hi  {color:var(--accent);}
+.metric-val.err {color:var(--danger);}
+
+/* ── TABLE ── */
+.data-table{width:100%;border-collapse:collapse;font-size:12px;}
+.data-table th{
+  text-align:left;padding:9px 12px;
+  font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-mid);border-bottom:1px solid var(--border);
+}
+.data-table th.r{text-align:right;}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);}
+.data-table td.r{text-align:right;}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:rgba(255,255,255,0.015);}
+.td-dsp{color:var(--accent3)!important;font-weight:700;}
+.td-gpu{color:var(--accent2)!important;font-weight:700;}
+.td-hi {color:var(--text)!important;font-weight:700;}
+
+/* ── BADGE ── */
+.badge{
+  display:inline-block;font-size:10px;font-weight:700;
+  padding:3px 8px;border-radius:3px;letter-spacing:.04em;
+}
+.badge.high{background:rgba(79,255,176,0.12);color:var(--accent2);border:1px solid rgba(79,255,176,0.25);}
+.badge.mid {background:rgba(255,159,67,0.12);color:var(--accent3);border:1px solid rgba(255,159,67,0.25);}
+.badge.low {background:rgba(255,107,107,0.12);color:var(--danger); border:1px solid rgba(255,107,107,0.25);}
+
+/* ── INFO BOX ── */
+.info-box{
+  background:var(--surface2);border-left:3px solid var(--accent);
+  border-radius:0 6px 6px 0;padding:11px 14px;
+  font-size:12px;color:var(--text-dim);line-height:1.8;
+}
+.info-box strong{color:var(--text);font-weight:600;}
+.info-box.ok  {border-left-color:var(--accent2);}
+.info-box.warn{border-left-color:var(--accent3);}
+
+/* ── PERF BAR ── */
+.pbar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.pbar-name{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;width:30px;flex-shrink:0;}
+.pbar-name.dsp{color:var(--accent3);}
+.pbar-name.gpu{color:var(--accent2);}
+.pbar-track{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.pbar-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1);}
+.pbar-fill.dsp{background:linear-gradient(90deg,rgba(255,159,67,.4),var(--accent3));}
+.pbar-fill.gpu{background:linear-gradient(90deg,rgba(79,255,176,.4),var(--accent2));}
+.pbar-val{font-size:10px;font-weight:700;min-width:54px;text-align:right;flex-shrink:0;}
+.pbar-val.dsp{color:var(--accent3);}
+.pbar-val.gpu{color:var(--accent2);}
+
+/* ── SIGNAL CANVAS ── */
+.sig-wrap{
+  background:#0d1117;border:1px solid var(--border);
+  border-radius:6px;overflow:hidden;position:relative;
+}
+.sig-label-overlay{
+  position:absolute;top:7px;left:10px;
+  font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,0.3);pointer-events:none;z-index:1;
+}
+
+/* ── PIPELINE ── */
+.pipeline{display:flex;align-items:stretch;gap:0;overflow-x:auto;}
+.pipe-step{display:flex;flex-direction:column;align-items:center;gap:0;flex:1;min-width:72px;}
+.pipe-box{
+  width:100%;padding:9px 6px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  text-align:center;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-mid);line-height:1.4;
+}
+.pipe-times{display:flex;justify-content:space-between;width:100%;padding:4px 2px 0;gap:2px;}
+.pipe-t{font-size:9px;text-align:center;flex:1;}
+.pipe-t.dsp{color:var(--accent3);}
+.pipe-t.gpu{color:var(--accent2);}
+.pipe-arrow{display:flex;align-items:center;padding:0 5px;color:var(--text-mid);font-size:12px;margin-bottom:22px;flex-shrink:0;}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:var(--border);margin:16px 0;}
+
+/* ── TX TABLE ── */
+.tx-table{width:100%;border-collapse:collapse;font-size:11px;}
+.tx-table th{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mid);padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;}
+.tx-table th:first-child{text-align:left;}
+.tx-table td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text-dim);text-align:right;}
+.tx-table td:first-child{text-align:left;color:var(--text);font-weight:600;}
+.tx-table tr:last-child td{border-bottom:none;}
+.tx-mini{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-top:3px;}
+.tx-mini-fill{height:100%;background:linear-gradient(90deg,rgba(99,210,255,.4),var(--accent));border-radius:2px;}
+
+/* ── HIGHLIGHT ROW ── */
+.hl-row{
+  background:rgba(99,210,255,0.05);border:1px solid rgba(99,210,255,0.15);
+  border-radius:6px;padding:10px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.hl-label{font-size:11px;color:var(--text-dim);}
+.hl-val  {font-size:13px;font-weight:700;color:var(--accent);}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(99,210,255,0.2);border-radius:3px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1000px){
+  .grid-3col{grid-template-columns:1fr!important;}
+  .grid-2col{grid-template-columns:1fr!important;}
+  .page{padding:20px 16px 48px;}
+  .header{padding:0 16px;}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">MFR/GPU Signal Processor<span> — </span>논문 데이터 시각화</div>
+  <div class="header-tag">Kwon et al., JIIBC 2020 · Vol.20 No.2 · pp.141-147</div>
+</header>
+
+<div class="page" style="display:flex;flex-direction:column;gap:32px;">
+
+  <!-- ══════════════════════════════════════
+       §0  논문 개요 배너
+  ══════════════════════════════════════ -->
+  <div style="background:var(--surface2);border:1px solid var(--border-hi);border-radius:10px;padding:18px 24px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:14px">하드웨어 사양 (고정)</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px" class="grid-2col">
+      <div>
+        <div class="metric-label">DSP</div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent3)">Intel Xeon E5-2648L v3</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:3px;line-height:1.7">12코어 · 24쓰레드 · 1.8 GHz<br>최대 75 W (TDP) · DDR4 64 GB</div>
+      </div>
+      <div>
+        <div class="metric-label">GPU</div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent2)">NVIDIA RTX 2080 Ti</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:3px;line-height:1.7">68 Multiprocessor · 4352 CUDA · 1.35 GHz<br>GDDR6 11 GB</div>
+      </div>
+      <div>
+        <div class="metric-label">DSP 라이브러리</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">Intel IPP</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:3px;line-height:1.7">고속 신호처리 최적화 라이브러리<br>펄스압축 FFT · OS-CFAR 구현</div>
+      </div>
+      <div>
+        <div class="metric-label">GPU 라이브러리</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">Nvidia cuFFT</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:3px;line-height:1.7">CUDA 기반 배치 FFT 가속<br>Host↔Device 메모리 복사 포함</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       §1  신호처리 파이프라인 — 두 패널
+  ══════════════════════════════════════ -->
+  <div>
+    <div class="sec-header"><h2>신호처리 알고리즘 흐름도</h2><div class="sec-line"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="grid-2col">
+
+      <!-- ── DSP 패널 ── -->
+      <div class="card" style="border-color:rgba(255,159,67,0.25);">
+        <!-- 패널 헤더 -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <div style="width:3px;height:32px;background:var(--accent3);border-radius:2px;flex-shrink:0;"></div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--accent3);letter-spacing:.04em;">DSP 처리 흐름</div>
+            <div style="font-size:10px;color:var(--text-mid);margin-top:1px;">Intel Xeon · IPP 라이브러리</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- 단계 블록 -->
+        <div style="display:flex;flex-direction:column;gap:6px;">
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,159,67,0.15);border:1px solid rgba(255,159,67,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--accent3);flex-shrink:0;">IN</div>
+            <div style="flex:1;background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.3);border-radius:6px;padding:8px 12px;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent3);letter-spacing:.06em;">데이터 입력</div>
+              <div style="font-size:10px;color:var(--text-mid);margin-top:2px;">레이다 비디오 신호 수신</div>
+            </div>
+          </div>
+
+          <div style="margin-left:14px;width:1px;height:10px;background:var(--border);"></div>
+
+          <!-- 펄스압축 블록 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-mid);">①</div>
+              <div style="width:1px;flex:1;min-height:10px;background:var(--border);"></div>
+            </div>
+            <div style="flex:1;margin-bottom:6px;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text);letter-spacing:.04em;">펄스압축</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  MemCopy → FFT → Multiply → IFFT<br>
+                  펄스 단위 병렬 수행 · IPP cuFFT 사용
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent3);font-weight:700;">DSP ≈ 163–165 μs</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 도플러처리 블록 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-mid);">②</div>
+              <div style="width:1px;flex:1;min-height:10px;background:var(--border);"></div>
+            </div>
+            <div style="flex:1;margin-bottom:6px;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text);letter-spacing:.04em;">도플러처리</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  Slow-time FFT (병렬)<br>
+                  표적의 도플러 속도 성분 추출
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent3);font-weight:700;">DSP ≈ 13.4 μs</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CFAR 블록 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-mid);">③</div>
+            </div>
+            <div style="flex:1;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text);letter-spacing:.04em;">표적탐지 (OS-CFAR)</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  Ordering → Compare (CUT)<br>
+                  비균일 잡음 환경에서도 안정적 탐지
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent3);font-weight:700;">DSP ≈ 221–222 μs</div>
+                <div style="background:rgba(255,159,67,0.04);border:1px solid rgba(255,159,67,0.12);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--text-mid);">전체의 55% 점유</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-left:14px;width:1px;height:10px;background:var(--border);"></div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,159,67,0.15);border:1px solid rgba(255,159,67,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--accent3);flex-shrink:0;">OUT</div>
+            <div style="flex:1;background:rgba(255,159,67,0.08);border:1px solid rgba(255,159,67,0.3);border-radius:6px;padding:8px 12px;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent3);letter-spacing:.06em;">탐지 출력</div>
+              <div style="font-size:10px;color:var(--text-mid);margin-top:2px;">표적 위치·속도 정보 전달</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-size:10px;color:var(--text-mid);line-height:1.8;">
+          <span style="color:var(--accent3);font-weight:700;">총합 ≈ 398–401 μs</span><br>
+          CFAR Ordering 연산량이 가장 크며, 케이스별 변동 없이 일정한 성능 유지
+        </div>
+      </div>
+
+      <!-- ── GPU 패널 ── -->
+      <div class="card" style="border-color:rgba(79,255,176,0.25);">
+        <!-- 패널 헤더 -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <div style="width:3px;height:32px;background:var(--accent2);border-radius:2px;flex-shrink:0;"></div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--accent2);letter-spacing:.04em;">GPU 처리 흐름</div>
+            <div style="font-size:10px;color:var(--text-mid);margin-top:1px;">RTX 2080 Ti · cuFFT 라이브러리</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(79,255,176,0.15);border:1px solid rgba(79,255,176,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--accent2);flex-shrink:0;">IN</div>
+            <div style="flex:1;background:rgba(79,255,176,0.06);border:1px solid rgba(79,255,176,0.25);border-radius:6px;padding:8px 12px;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.06em;">데이터 입력</div>
+              <div style="font-size:10px;color:var(--text-mid);margin-top:2px;">레이다 비디오 신호 수신</div>
+            </div>
+          </div>
+
+          <div style="margin-left:14px;width:1px;height:10px;background:var(--border);"></div>
+
+          <!-- MEMCPY 블록 — 강조 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--danger);">★</div>
+              <div style="width:1px;flex:1;min-height:10px;background:var(--border);"></div>
+            </div>
+            <div style="flex:1;margin-bottom:6px;">
+              <div style="background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.25);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--danger);letter-spacing:.04em;">Host → Device (MEMCPY)</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  CPU 메모리 → GPU 메모리 전송<br>
+                  DSP 대비 추가 단계 · 데이터량에 비례하여 증가
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <div style="background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--danger);font-weight:700;">C1: 34.4 μs</div>
+                <div style="background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--danger);font-weight:700;">C2: 99.4 μs</div>
+                <div style="background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--danger);font-weight:700;">C3: 275.0 μs</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 펄스압축 블록 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-mid);">①</div>
+              <div style="width:1px;flex:1;min-height:10px;background:var(--border);"></div>
+            </div>
+            <div style="flex:1;margin-bottom:6px;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text);letter-spacing:.04em;">펄스압축 (GPU Batch)</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  Kernel: Mem Align → FFT Batch → Multiply → IFFT Batch<br>
+                  메모리 정렬 후 배치 병렬 수행으로 DSP 대비 7× 가속
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent2);font-weight:700;">GPU ≈ 23–26 μs</div>
+                <div style="background:rgba(79,255,176,0.04);border:1px solid rgba(79,255,176,0.12);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--text-mid);">DSP 대비 7× 빠름</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 도플러처리 블록 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-mid);">②</div>
+              <div style="width:1px;flex:1;min-height:10px;background:var(--border);"></div>
+            </div>
+            <div style="flex:1;margin-bottom:6px;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text);letter-spacing:.04em;">도플러처리 (GPU Batch FFT)</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  펄스압축 결과 정렬 상태에서 병렬 FFT만 수행<br>
+                  케이스별 편차가 크며 C2에서 3.5 μs로 최고 효율
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <div style="background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent2);font-weight:700;">C1: 22.7 μs</div>
+                <div style="background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent2);font-weight:700;">C2: 3.5 μs</div>
+                <div style="background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent2);font-weight:700;">C3: 14.8 μs</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CFAR 블록 -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-mid);">③</div>
+            </div>
+            <div style="flex:1;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text);letter-spacing:.04em;">표적탐지 (OS-CFAR)</div>
+                <div style="font-size:10px;color:var(--text-mid);margin-top:3px;line-height:1.6;">
+                  CUDA 병렬 Ordering + Compare<br>
+                  DSP 대비 약 15× 가속 — GPU 이점이 가장 두드러지는 단계
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.2);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--accent2);font-weight:700;">GPU ≈ 13–15 μs</div>
+                <div style="background:rgba(79,255,176,0.04);border:1px solid rgba(79,255,176,0.12);border-radius:4px;padding:4px 8px;font-size:9px;color:var(--text-mid);">DSP 대비 15× 빠름</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-left:14px;width:1px;height:10px;background:var(--border);"></div>
+
+          <!-- Device→Host -->
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--danger);flex-shrink:0;">★</div>
+            <div style="flex:1;background:rgba(255,107,107,0.05);border:1px solid rgba(255,107,107,0.2);border-radius:6px;padding:8px 12px;">
+              <div style="font-size:10px;font-weight:700;color:var(--danger);letter-spacing:.04em;">Device → Host</div>
+              <div style="font-size:10px;color:var(--text-mid);margin-top:2px;">GPU 결과를 CPU로 반환 · 최종 탐지 정보 전달</div>
+            </div>
+          </div>
+
+          <div style="margin-left:14px;width:1px;height:10px;background:var(--border);"></div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(79,255,176,0.15);border:1px solid rgba(79,255,176,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--accent2);flex-shrink:0;">OUT</div>
+            <div style="flex:1;background:rgba(79,255,176,0.06);border:1px solid rgba(79,255,176,0.25);border-radius:6px;padding:8px 12px;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.06em;">탐지 출력</div>
+              <div style="font-size:10px;color:var(--text-mid);margin-top:2px;">표적 위치·속도 정보 전달</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-size:10px;color:var(--text-mid);line-height:1.8;">
+          <span style="color:var(--accent2);font-weight:700;">총합 95.7 ~ 328.1 μs (케이스별 상이)</span><br>
+          MEMCPY 비중이 데이터량에 따라 36% ~ 84%까지 변동 — 설계 시 전송 최소화가 핵심
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       §2  입력 데이터 파라미터 + 성능 비교 표
+  ══════════════════════════════════════ -->
+  <div>
+    <div class="sec-header"><h2>케이스별 입력 파라미터 및 성능 비교 (Table 5·6)</h2><div class="sec-line"></div></div>
+
+    <!-- 케이스 카드 3열 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px" class="grid-3col">
+
+      <!-- CASE 1 -->
+      <div class="card" style="border-color:rgba(99,210,255,0.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span class="case-badge c1">Case 1</span>
+          <span class="badge high">4.2×</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.9;margin-bottom:14px">
+          소량 데이터 · <strong style="color:var(--text)">고속 응답</strong> 케이스<br>
+          펄스 수 <strong style="color:var(--accent)">14개</strong> · 데이터량 <strong style="color:var(--accent)">73.5 kB</strong> · Dwell 1.5 ms
+        </div>
+        <div class="divider"></div>
+        <div id="bars_c1"></div>
+        <div class="divider"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="metric-box"><div class="metric-label">DSP 총합</div><div class="metric-val warn">400.6</div><div class="metric-unit">μs</div></div>
+          <div class="metric-box"><div class="metric-label">GPU 총합</div><div class="metric-val ok">95.7</div><div class="metric-unit">μs</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-dim);line-height:1.7">
+          MEMCPY 비율 <strong style="color:var(--accent)">36%</strong> — 데이터 소량으로 전송 부하 작음.<br>
+          GPU의 병렬 CFAR 가속 효과가 가장 두드러지는 케이스.
+        </div>
+      </div>
+
+      <!-- CASE 2 -->
+      <div class="card" style="border-color:rgba(79,255,176,0.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span class="case-badge c2">Case 2</span>
+          <span class="badge mid">2.8×</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.9;margin-bottom:14px">
+          중간 데이터 · <strong style="color:var(--text)">긴 도플러 반복</strong> 케이스<br>
+          펄스 수 <strong style="color:var(--accent2)">3개</strong> · 데이터량 <strong style="color:var(--accent2)">216 kB</strong> · Dwell 4.5 ms
+        </div>
+        <div class="divider"></div>
+        <div id="bars_c2"></div>
+        <div class="divider"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="metric-box"><div class="metric-label">DSP 총합</div><div class="metric-val warn">398.2</div><div class="metric-unit">μs</div></div>
+          <div class="metric-box"><div class="metric-label">GPU 총합</div><div class="metric-val ok">142.4</div><div class="metric-unit">μs</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-dim);line-height:1.7">
+          MEMCPY 비율 <strong style="color:var(--accent2)">70%</strong> — 전송 비중이 Case 1 대비 크게 증가.<br>
+          도플러처리에서 DSP(13.4μs) vs GPU(3.5μs) 차이가 두드러짐.
+        </div>
+      </div>
+
+      <!-- CASE 3 -->
+      <div class="card" style="border-color:rgba(255,159,67,0.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span class="case-badge c3">Case 3</span>
+          <span class="badge low">1.2×</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.9;margin-bottom:14px">
+          대용량 데이터 · <strong style="color:var(--text)">MEMCPY 지배</strong> 케이스<br>
+          펄스 수 <strong style="color:var(--accent3)">135개</strong> · 데이터량 <strong style="color:var(--accent3)">708.5 kB</strong> · Dwell 14 ms
+        </div>
+        <div class="divider"></div>
+        <div id="bars_c3"></div>
+        <div class="divider"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="metric-box"><div class="metric-label">DSP 총합</div><div class="metric-val warn">398.7</div><div class="metric-unit">μs</div></div>
+          <div class="metric-box"><div class="metric-label">GPU 총합</div><div class="metric-val" style="color:var(--accent3)">328.1</div><div class="metric-unit">μs</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-dim);line-height:1.7">
+          MEMCPY 비율 <strong style="color:var(--accent3)">84%</strong> — GPU 처리 시간의 대부분이 전송 오버헤드로 소비.<br>
+          그러나 연산 자체(펄스압축·CFAR)는 여전히 GPU가 우세.
+        </div>
+      </div>
+    </div>
+
+    <!-- 상세 비교 표 -->
+    <div class="card">
+      <div class="card-title">단계별 연산시간 상세 비교 — 논문 Table 6 (단위: μs)</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>처리 단계</th>
+            <th class="r" style="color:var(--accent3)">DSP · C1</th>
+            <th class="r" style="color:var(--accent2)">GPU · C1</th>
+            <th class="r" style="color:var(--accent3)">DSP · C2</th>
+            <th class="r" style="color:var(--accent2)">GPU · C2</th>
+            <th class="r" style="color:var(--accent3)">DSP · C3</th>
+            <th class="r" style="color:var(--accent2)">GPU · C3</th>
+            <th class="r">비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Host → Device (MEMCPY)</td>
+            <td class="r">0</td><td class="r td-gpu">34.4</td>
+            <td class="r">0</td><td class="r td-gpu">99.4</td>
+            <td class="r">0</td><td class="r td-gpu">275.0</td>
+            <td class="r" style="color:var(--danger);font-size:11px">GPU only</td>
+          </tr>
+          <tr>
+            <td>펄스압축 (Pulse Compression)</td>
+            <td class="r td-dsp">165.4</td><td class="r td-gpu">23.5</td>
+            <td class="r td-dsp">163.0</td><td class="r td-gpu">26.1</td>
+            <td class="r td-dsp">163.2</td><td class="r td-gpu">23.6</td>
+            <td class="r" style="color:var(--accent2);font-size:11px">GPU 7× 우세</td>
+          </tr>
+          <tr>
+            <td>도플러처리 (Doppler Filter)</td>
+            <td class="r td-dsp">13.4</td><td class="r td-gpu">22.7</td>
+            <td class="r td-dsp">13.4</td><td class="r td-gpu">3.5</td>
+            <td class="r td-dsp">13.4</td><td class="r td-gpu">14.8</td>
+            <td class="r" style="color:var(--text-mid);font-size:11px">C2만 GPU 우세</td>
+          </tr>
+          <tr>
+            <td>표적탐지 (OS-CFAR)</td>
+            <td class="r td-dsp">221.8</td><td class="r td-gpu">15.1</td>
+            <td class="r td-dsp">221.8</td><td class="r td-gpu">13.4</td>
+            <td class="r td-dsp">222.1</td><td class="r td-gpu">14.7</td>
+            <td class="r" style="color:var(--accent2);font-size:11px">GPU 15× 우세</td>
+          </tr>
+          <tr style="border-top:1px solid rgba(255,255,255,0.12)">
+            <td class="td-hi">총합</td>
+            <td class="r td-dsp">400.6</td><td class="r td-gpu">95.7</td>
+            <td class="r td-dsp">398.2</td><td class="r td-gpu">142.4</td>
+            <td class="r td-dsp">398.7</td><td class="r td-gpu">328.1</td>
+            <td class="r"></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text-mid)">성능 개선 (DSP/GPU)</td>
+            <td class="r" colspan="2"><span class="badge high">4.2×</span></td>
+            <td class="r" colspan="2"><span class="badge mid">2.8×</span></td>
+            <td class="r" colspan="2"><span class="badge low">1.2×</span></td>
+            <td class="r"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       §3  차트 3종 (막대·스택·비율)
+  ══════════════════════════════════════ -->
+  <div>
+    <div class="sec-header"><h2>성능 시각화 차트</h2><div class="sec-line"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px" class="grid-3col">
+
+      <div class="card">
+        <div class="card-title">케이스별 총 처리시간 비교</div>
+        <div style="position:relative;height:220px"><canvas id="cv_total"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">GPU 내 단계별 시간 점유율 (스택)</div>
+        <div style="position:relative;height:220px"><canvas id="cv_gpu_stack"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">DSP 내 단계별 시간 점유율 (스택)</div>
+        <div style="position:relative;height:220px"><canvas id="cv_dsp_stack"></canvas></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       §4  GPU I/O 성능 분석
+  ══════════════════════════════════════ -->
+  <div>
+    <div class="sec-header"><h2>GPU 입출력 성능 분석 (Table 3·4)</h2><div class="sec-line"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="grid-2col">
+
+      <!-- 함수 호출 -->
+      <div class="card">
+        <div class="card-title">GPU 함수 호출 시간 (Table 3)</div>
+        <div style="background:var(--surface2);border-left:2px solid var(--accent3);border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:14px;font-size:11px;color:var(--text-dim);line-height:1.8">
+          GPU 함수 1회 호출 ≈ <strong style="color:var(--accent3)">3 μs</strong> — 디바이스 드라이버 경유로 CPU 대비 약 <strong style="color:var(--danger)">1000배 느림</strong>.<br>
+          쓰레드 수와는 무관하게 일정.<br>
+          → GPU 함수 호출 횟수를 최소화하는 구조로 설계 필수.
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>호출 횟수</th><th class="r">GPU 총 (ms)</th><th class="r">CPU 총 (ms)</th><th class="r">GPU/콜 (μs)</th><th class="r">CPU/콜 (μs)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>100k</td>   <td class="r td-dsp">301.49</td>  <td class="r">4.39</td>  <td class="r td-gpu">3.01</td><td class="r">0.0059</td></tr>
+            <tr><td>1,000k</td> <td class="r td-dsp">2,917.66</td><td class="r">38.3</td>  <td class="r td-gpu">2.92</td><td class="r">0.0043</td></tr>
+            <tr><td>10,000k</td><td class="r td-dsp">29,175.9</td><td class="r">280.0</td> <td class="r td-gpu">2.92</td><td class="r">0.0038</td></tr>
+          </tbody>
+        </table>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px">
+          <div class="hl-row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px">
+            <div class="hl-label" style="font-size:10px">호출 오버헤드</div>
+            <div class="hl-val">≈ 3 μs</div>
+          </div>
+          <div class="hl-row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px">
+            <div class="hl-label" style="font-size:10px">CPU 대비 속도</div>
+            <div class="hl-val" style="color:var(--accent3)">1/1000×</div>
+          </div>
+          <div class="hl-row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px">
+            <div class="hl-label" style="font-size:10px">쓰레드 영향</div>
+            <div class="hl-val" style="color:var(--accent2)">없음</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 전송 성능 -->
+      <div class="card">
+        <div class="card-title">데이터 전송 성능 (Table 4)</div>
+        <div style="background:var(--surface2);border-left:2px solid var(--accent2);border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:14px;font-size:11px;color:var(--text-dim);line-height:1.8">
+          1 MB 이상부터 안정 대역폭 <strong style="color:var(--accent2)">≈ 11,000 MB/s</strong> 확보.<br>
+          1 kB 소량 전송은 오버헤드로 1 MB 대비 약 <strong style="color:var(--danger)">10% 수준</strong>에 불과.<br>
+          단, 전송시간 자체가 ≈7 μs로 짧아 추적레이다에서의 영향은 미미.
+        </div>
+        <table class="tx-table">
+          <thead>
+            <tr><th>블록 크기</th><th>CPU→GPU (MB/s)</th><th>GPU→CPU (MB/s)</th></tr>
+          </thead>
+          <tbody id="tx_tbody"></tbody>
+        </table>
+        <div style="position:relative;height:130px;margin-top:14px"><canvas id="cv_bw"></canvas></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       §5  결론
+  ══════════════════════════════════════ -->
+  <div class="info-box ok" style="font-size:12px;line-height:2">
+    <strong>결론 (논문 4장)</strong> — CPU-GPU 간 메모리 대역폭 제한에도 불구하고,<br>
+    전체 연산 응답속도는 GPU가 DSP 대비 <strong>최소 1.2배 ~ 최대 4.2배</strong> 우세함을 확인.<br>
+    하나의 GPU가 제공하는 다중 프로세서 수를 고려하면 <strong>다중빔 다기능레이다 신호처리장치에 GPU 적용이 적합</strong>하다고 판단됨.<br>
+    단, 데이터량이 클수록 MEMCPY가 병목이 되므로 설계 시 <strong>Host↔Device 전송 최소화 구조</strong>가 필수.
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── PAPER DATA ──────────────────────────────────────────────
+const CASES = [
+  { label:'Case 1', pulse:14,  data:73.5,  dwell:1.5,
+    dsp:{mem:0,    pc:165.4, dp:13.4, cfar:221.8, total:400.6},
+    gpu:{mem:34.4, pc:23.5,  dp:22.7, cfar:15.1,  total:95.7 } },
+  { label:'Case 2', pulse:3,   data:216,   dwell:4.5,
+    dsp:{mem:0,    pc:163.0, dp:13.4, cfar:221.8, total:398.2},
+    gpu:{mem:99.4, pc:26.1,  dp:3.5,  cfar:13.4,  total:142.4} },
+  { label:'Case 3', pulse:135, data:708.5, dwell:14,
+    dsp:{mem:0,    pc:163.2, dp:13.4, cfar:222.1, total:398.7},
+    gpu:{mem:275.0,pc:23.6,  dp:14.8, cfar:14.7,  total:328.1} },
+];
+
+const TX_DATA = [
+  {s:'1 KB',    c2g:129.7,   g2c:149.5  },
+  {s:'10 KB',   c2g:994.0,   g2c:1054.9 },
+  {s:'100 KB',  c2g:6743.0,  g2c:6954.1 },
+  {s:'1 MB',    c2g:10774.0, g2c:10833.1},
+  {s:'10 MB',   c2g:11536.7, g2c:11494.2},
+  {s:'100 MB',  c2g:11577.8, g2c:11575.5},
+  {s:'1000 MB', c2g:11312.6, g2c:11312.9},
+];
+
+const STEPS = ['MEMCPY','펄스압축','도플러','CFAR'];
+const STEP_KEYS = ['mem','pc','dp','cfar'];
+
+// ── PERF BARS (per case card) ─────────────────────────────
+function buildPerfBars(caseIdx) {
+  const c = CASES[caseIdx];
+  const id = ['bars_c1','bars_c2','bars_c3'][caseIdx];
+  const mx = Math.max(c.dsp.total, c.gpu.total);
+
+  const html = STEPS.map((label, i) => {
+    const k = STEP_KEYS[i];
+    const dp = c.dsp[k], gp = c.gpu[k];
+    const dPct = (dp/mx*100).toFixed(1);
+    const gPct = (gp/mx*100).toFixed(1);
+    return `
+      <div style="margin-bottom:10px">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mid);margin-bottom:5px">${label}</div>
+        <div class="pbar-row">
+          <span class="pbar-name dsp">DSP</span>
+          <div class="pbar-track"><div class="pbar-fill dsp" style="width:0%" data-t="${dPct}"></div></div>
+          <span class="pbar-val dsp">${dp.toFixed(1)} μs</span>
+        </div>
+        <div class="pbar-row">
+          <span class="pbar-name gpu">GPU</span>
+          <div class="pbar-track"><div class="pbar-fill gpu" style="width:0%" data-t="${gPct}"></div></div>
+          <span class="pbar-val gpu">${gp.toFixed(1)} μs</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById(id).innerHTML = html;
+}
+
+// ── TX TABLE ──────────────────────────────────────────────
+function buildTxTable() {
+  const MX = 11600;
+  document.getElementById('tx_tbody').innerHTML = TX_DATA.map(d => `
+    <tr>
+      <td>${d.s}</td>
+      <td>
+        ${d.c2g.toLocaleString()}
+        <div class="tx-mini"><div class="tx-mini-fill" style="width:${(d.c2g/MX*100).toFixed(1)}%"></div></div>
+      </td>
+      <td>
+        ${d.g2c.toLocaleString()}
+        <div class="tx-mini"><div class="tx-mini-fill" style="width:${(d.g2c/MX*100).toFixed(1)}%"></div></div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── CHART.JS CHARTS ───────────────────────────────────────
+const CHART_OPTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color:'#5a6478', font:{size:10, family:'Pretendard'}, boxWidth:10, padding:10 } }
+  },
+  scales: {
+    x: { ticks:{color:'#5a6478',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
+    y: { ticks:{color:'#5a6478',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} }
+  }
+};
+
+function buildCharts() {
+  const labels = CASES.map(c => c.label);
+
+  // §3-1 총 처리시간 그룹 막대
+  new Chart(document.getElementById('cv_total'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'DSP 총합 (μs)', data:CASES.map(c=>c.dsp.total),
+          backgroundColor:'rgba(255,159,67,0.55)', borderColor:'#ff9f43', borderWidth:1 },
+        { label:'GPU 총합 (μs)', data:CASES.map(c=>c.gpu.total),
+          backgroundColor:'rgba(79,255,176,0.55)',  borderColor:'#4fffb0', borderWidth:1 },
+      ]
+    },
+    options: {
+      ...CHART_OPTS,
+      plugins: {
+        ...CHART_OPTS.plugins,
+        tooltip: { callbacks: {
+          afterBody: items => {
+            const idx = items[0].dataIndex;
+            return [`개선 배율: ${[4.2,2.8,1.2][idx]}×`];
+          }
+        }}
+      },
+      scales: {
+        x: { ...CHART_OPTS.scales.x },
+        y: { ...CHART_OPTS.scales.y,
+             title:{display:true,text:'처리시간 (μs)',color:'#5a6478',font:{size:10}} }
+      }
+    }
+  });
+
+  // §3-2 GPU 스택 바 (단계별 점유)
+  new Chart(document.getElementById('cv_gpu_stack'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'MEMCPY',  data:CASES.map(c=>c.gpu.mem),  backgroundColor:'rgba(255,107,107,0.65)', borderWidth:0 },
+        { label:'펄스압축', data:CASES.map(c=>c.gpu.pc),   backgroundColor:'rgba(99,210,255,0.65)',  borderWidth:0 },
+        { label:'도플러',   data:CASES.map(c=>c.gpu.dp),   backgroundColor:'rgba(79,255,176,0.65)',  borderWidth:0 },
+        { label:'CFAR',    data:CASES.map(c=>c.gpu.cfar),  backgroundColor:'rgba(255,159,67,0.65)',  borderWidth:0 },
+      ]
+    },
+    options: {
+      ...CHART_OPTS,
+      scales: {
+        x: { stacked:true, ...CHART_OPTS.scales.x },
+        y: { stacked:true, ...CHART_OPTS.scales.y,
+             title:{display:true,text:'처리시간 (μs)',color:'#5a6478',font:{size:10}} }
+      }
+    }
+  });
+
+  // §3-3 DSP 스택 바
+  new Chart(document.getElementById('cv_dsp_stack'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'펄스압축', data:CASES.map(c=>c.dsp.pc),   backgroundColor:'rgba(99,210,255,0.55)',  borderWidth:0 },
+        { label:'도플러',   data:CASES.map(c=>c.dsp.dp),   backgroundColor:'rgba(79,255,176,0.55)',  borderWidth:0 },
+        { label:'CFAR',    data:CASES.map(c=>c.dsp.cfar),  backgroundColor:'rgba(255,159,67,0.65)',  borderWidth:0 },
+      ]
+    },
+    options: {
+      ...CHART_OPTS,
+      scales: {
+        x: { stacked:true, ...CHART_OPTS.scales.x },
+        y: { stacked:true, ...CHART_OPTS.scales.y,
+             title:{display:true,text:'처리시간 (μs)',color:'#5a6478',font:{size:10}} }
+      }
+    }
+  });
+
+  // §4 대역폭 라인 차트
+  new Chart(document.getElementById('cv_bw'), {
+    type: 'line',
+    data: {
+      labels: TX_DATA.map(d=>d.s),
+      datasets: [
+        { label:'CPU→GPU (MB/s)', data:TX_DATA.map(d=>d.c2g),
+          borderColor:'#63d2ff', backgroundColor:'rgba(99,210,255,0.06)',
+          fill:true, tension:.35, pointRadius:3, borderWidth:2 },
+        { label:'GPU→CPU (MB/s)', data:TX_DATA.map(d=>d.g2c),
+          borderColor:'#4fffb0', backgroundColor:'rgba(79,255,176,0.04)',
+          fill:true, tension:.35, pointRadius:3, borderWidth:2 },
+      ]
+    },
+    options: {
+      ...CHART_OPTS,
+      scales: {
+        x: { ...CHART_OPTS.scales.x },
+        y: { min:0, ...CHART_OPTS.scales.y,
+             title:{display:true,text:'MB/s',color:'#5a6478',font:{size:10}} }
+      }
+    }
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  [0,1,2].forEach(i => buildPerfBars(i));
+  buildTxTable();
+  buildCharts();
+
+  // animate bars after paint
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      document.querySelectorAll('.pbar-fill').forEach(el => {
+        el.style.width = el.dataset.t + '%';
+      });
+    }, 100);
+  });
+});
+</script>
+</body>
+</html>
